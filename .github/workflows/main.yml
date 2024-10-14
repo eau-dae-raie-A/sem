@@ -82,6 +82,8 @@ jobs:
             ./target/*.jar
       - name: Copy Output
         run: docker container cp sem-app-1:./tmp/reports ./
+      - name: Cleanup Previous Worktrees
+        run: git worktree prune
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4.2.5
         with:
