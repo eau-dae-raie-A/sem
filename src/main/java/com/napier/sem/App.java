@@ -1,5 +1,9 @@
 package com.napier.sem;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
 
@@ -153,21 +157,96 @@ public class App
         }
     }
 
-    public static void main(String[] args) {
-        // Create new Application and connect to database
-        App a = new App();
+    public ArrayList<Employee> getSalariesByRole(String role) {
+        ArrayList<Employee> employees = new ArrayList<>();
+        try {
+            // Create an SQL statement
+            Statement stmt = con.createStatement();
+            // SQL query to get the employees with a specified role
+            String strSelect =
+                    "SELECT employees.emp_no, employees.first_name, employees.last_name, " +
+                            "titles.title, salaries.salary, departments.dept_name, dept_manager.emp_no AS manager " +
+                            "FROM employees, salaries, titles, departments, dept_emp, dept_manager " +
+                            "WHERE employees.emp_no = salaries.emp_no " +
+                            "AND salaries.to_date = '9999-01-01' " +
+                            "AND titles.emp_no = employees.emp_no " +
+                            "AND titles.to_date = '9999-01-01' " +
+                            "AND dept_emp.emp_no = employees.emp_no " +
+                            "AND dept_emp.to_date = '9999-01-01' " +
+                            "AND departments.dept_no = dept_emp.dept_no " +
+                            "AND dept_manager.dept_no = dept_emp.dept_no " +
+                            "AND dept_manager.to_date = '9999-01-01' " +
+                            "AND titles.title = '" + role + "'";
+            // Execute SQL statement
+            ResultSet rset = stmt.executeQuery(strSelect);
+            // Process the results
+            while (rset.next()) {
+                Employee emp = new Employee();
+                emp.emp_no = rset.getInt("emp_no");
+                emp.first_name = rset.getString("first_name");
+                emp.last_name = rset.getString("last_name");
+                emp.title = rset.getString("title");
+                emp.salary = rset.getInt("salary");
+                emp.dept_name = rset.getString("dept_name");
+                emp.manager = rset.getString("manager");
+                employees.add(emp);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            System.out.println("Failed to get employees by role: " + role);
+        }
+        return employees;
+    }
 
-        if(args.length < 1){
-            a.connect("localhost:33060", 30000);
-        }else{
-            a.connect(args[0], Integer.parseInt(args[1]));
+    /**
+     * Outputs to Markdown
+     *
+     * @param employees
+     */
+    public void outputEmployees(ArrayList<Employee> employees, String filename) {
+        // Check employees is not null
+        if (employees == null) {
+            System.out.println("No employees");
+            return;
         }
 
-        Employee emp = a.getEmployee(255530);
-        a.displayEmployee(emp);
+        StringBuilder sb = new StringBuilder();
+        // Print header
+        sb.append("| Emp No | First Name | Last Name | Title | Salary | Department |                    Manager |\r\n");
+        sb.append("| --- | --- | --- | --- | --- | --- | --- |\r\n");
+        // Loop over all employees in the list
+        for (Employee emp : employees) {
+            if (emp == null) continue;
+            sb.append("| " + emp.emp_no + " | " +
+                    emp.first_name + " | " + emp.last_name + " | " +
+                    emp.title + " | " + emp.salary + " | "
+                    + emp.dept_name + " | " + emp.manager + " |\r\n");
+        }
+        try {
+            new File("./reports/").mkdir();
+            BufferedWriter writer = new BufferedWriter(new FileWriter(new                                 File("./reports/" + filename)));
+            writer.write(sb.toString());
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        // Create new Application and connect to database
+        App app = new App();
+
+        if (args.length < 1) {
+            app.connect("localhost:33060", 0);
+        } else {
+            app.connect(args[0], Integer.parseInt(args[1]));
+        }
+
+        ArrayList<Employee> employees = app.getSalariesByRole("Manager");
+        app.outputEmployees(employees, "ManagerSalaries.md");
 
         // Disconnect from database
-        a.disconnect();
+        app.disconnect();
     }
 
 }
